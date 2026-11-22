@@ -1,0 +1,4 @@
+interface:
+  display_name: "A股研究"
+  short_description: "A股综合投研、估值评级、分批建仓、风控与跟踪计划模板"
+  default_prompt: "Use $stock-research to analyze 600519 贵州茅台 and save an A-share research report."
