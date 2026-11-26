@@ -17,7 +17,10 @@ from sentiment_core import validate_snapshot
 
 
 LINK = re.compile(r"\[[^\]\n]*\]\(\s*(<[^>]+>|[^\s)]+)(?:\s+\"[^\"]*\")?\s*\)")
-RANGE = re.compile(r"\d+(?:\.\d+)?\s*(?:—|–|-|~|～|至)\s*\d+(?:\.\d+)?")
+RANGE = re.compile(
+    r"\d+(?:\.\d+)?\s*(?:(?:—|–|-|~|～|至)\s*\d+(?:\.\d+)?|"
+    r"(?:<=|>=|[<>≤≥＜＞])\s*(?:P|价格|股价)\s*(?:<=|>=|[<>≤≥＜＞])\s*\d+(?:\.\d+)?)"
+)
 PHASE = re.compile(r"premarket|intraday|lunch_break|closing_auction|postmarket|non_trading|unknown|"
                    r"盘前|集合竞价|连续交易|连续竞价|盘中|午休|收盘竞价|盘后|收盘|非交易日|未知")
 
@@ -45,11 +48,13 @@ def _metadata_header(text: str) -> str:
     for line in text.splitlines():
         if re.match(r"^\s*#{2,6}\s", line):
             break
-        match = re.match(r"^\s*(?:>\s*|[-*]\s+)([^:：]+)[:：]\s*(.+)$", line)
-        if match:
-            key = re.sub(r"[\s*]", "", match.group(1))
-            if re.fullmatch(labels, key):
-                lines.append(f"> {key}: {match.group(2).strip().lstrip('*').strip()}")
+        parts = re.split(r"[；;]\s*(?=(?:\*\*)?(?:" + labels + r")(?:\*\*)?\s*[:：])", line)
+        for part in parts:
+            match = re.match(r"^\s*(?:>\s*|[-*]\s+)?([^:：]+)[:：]\s*(.+)$", part)
+            if match:
+                key = re.sub(r"[\s*]", "", match.group(1))
+                if re.fullmatch(labels, key):
+                    lines.append(f"> {key}: {match.group(2).strip().lstrip('*').strip()}")
     return "\n".join(lines)
 
 
@@ -57,7 +62,7 @@ def _band_lines(text: str, kind: str) -> list[str]:
     found = []
     lines = text.splitlines()
     for index, line in enumerate(lines):
-        if not re.search(kind + r"(?:考察|价格)?(?:区间|价带|价格带|范围)", line):
+        if not re.search(kind + r"(?:参考|考察|价格)?(?:区间|价带|价格带|范围|区)", line):
             continue
         if re.search(r"前次|历史|旧价|原区间|已失效", line):
             continue
@@ -72,7 +77,7 @@ def _band_lines(text: str, kind: str) -> list[str]:
     return found
 
 
-def validate_report(report_path: Path, workspace: Path) -> dict:
+def validate_report(report_path: Path, workspace: Path, *, content: str | None = None) -> dict:
     workspace = Path(workspace).expanduser().resolve()
     report_path = Path(report_path).expanduser()
     report_path = (report_path if report_path.is_absolute() else workspace / report_path).resolve()
@@ -81,7 +86,7 @@ def validate_report(report_path: Path, workspace: Path) -> dict:
               "source_summary": {}, "rating_contract": {}}
     errors, warnings = result["errors"], result["warnings"]
     try:
-        text = report_path.read_text(encoding="utf-8-sig")
+        text = report_path.read_text(encoding="utf-8-sig") if content is None else content
     except (OSError, UnicodeError) as exc:
         errors.append(f"Report unreadable: {exc}")
         return result
@@ -171,6 +176,8 @@ def validate_report(report_path: Path, workspace: Path) -> dict:
         is_chip_chart = target.suffix.lower() == ".svg" and target.is_relative_to(workspace / "research/evidence/chips/charts")
         if is_chip_chart:
             linked_chip_charts[target] = raw
+        if target == report_path and content is not None:
+            continue
         if not target.is_file():
             if not is_chip_chart:
                 errors.append(f"Missing local link target: {raw}")
@@ -381,8 +388,15 @@ def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--report", required=True, type=Path)
     parser.add_argument("--workspace", default=".", type=Path)
+    parser.add_argument("--content-file", type=Path,
+                        help="Preflight UTF-8 draft text as --report, without creating that report")
     args = parser.parse_args(argv)
-    result = validate_report(args.report, args.workspace)
+    try:
+        content = args.content_file.read_text(encoding="utf-8-sig") if args.content_file else None
+    except (OSError, UnicodeError) as exc:
+        print(json.dumps({"errors": [str(exc)]}, ensure_ascii=False))
+        return 1
+    result = validate_report(args.report, args.workspace, content=content)
     print(json.dumps(result, ensure_ascii=False, indent=2))
     return 1 if result["errors"] else 0
 

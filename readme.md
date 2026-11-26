@@ -58,7 +58,7 @@
 | [sentiment_market.py](scripts/sentiment_market.py) | 市场广度及涨停、跌停、炸板等专题池。 |
 | [sentiment_stock.py](scripts/sentiment_stock.py) | 个股热度、东财失败时独立记录同花顺当前热榜候选、讨论榜、新闻候选及人工帖子审核结果。 |
 | [sentiment_cross_market.py](scripts/sentiment_cross_market.py) | 研究者选定的海外／宏观参照及其时间、口径校验。 |
-| [create_report.py](scripts/create_report.py) | 将完成的 Markdown 保存到 `research/`，或在未传正文时生成空白草稿；同名文件自动加版本号。 |
+| [create_report.py](scripts/create_report.py) | 默认更新 `.drafts/` 中同一草稿；显式 `--publish` 先预检后原子发布；原样重试复用，真实更新/发布后更正另存带原因的新版本。 |
 | [validate_report.py](scripts/validate_report.py) | 只读核对元数据、相对链接、JSON 契约、代码、行情时间、评级价带及跟踪报告引用。 |
 | [check_source_health.py](scripts/check_source_health.py) | 只读汇总所有版本快照的来源状态、最近成功／失败时间、覆盖范围和建议动作。 |
 | [install_sentiment_schedule.ps1](scripts/install_sentiment_schedule.ps1) | 可选：为当前已登录 Windows 用户注册每日 18:00、20:00 的市场情绪采集任务。 |
@@ -150,10 +150,11 @@ python (Join-Path $stockSkill 'scripts\collect_chips.py') --code 600519 --output
 将完成的 Markdown 先存为 UTF-8 文件，再运行：
 
 ```powershell
-python (Join-Path $stockSkill 'scripts\create_report.py') --code 600519 --name 贵州茅台 --date 2026-09-29 --output-dir . --content-file 'D:\path\to\completed.md'
+python (Join-Path $stockSkill 'scripts\create_report.py') --code 600519 --name 贵州茅台 --date 2026-09-29 --output-dir . --content-file 'D:\path\to\completed.md' --validate
+python (Join-Path $stockSkill 'scripts\create_report.py') --code 600519 --name 贵州茅台 --date 2026-09-29 --output-dir . --content-file 'research/.drafts/2026-09-29-600519-贵州茅台.md' --publish
 ```
 
-`create_report.py` 只负责保存文件，不负责采集、联网、分析或核验。省略 `--content-file` 会生成草稿；提交报告前应读回输出文件，确认其为完整正文。相同日期、代码和名称的文件不会覆盖，而是顺次生成 `-v2`、`-v3`。
+第一条命令保存/预检可编辑草稿，修复时重复执行不会增加正式版本；第二条在人工核对后显式发布，并自动先做结构和本地引用预检。预检失败退出1，只有`.drafts/`草稿；原样发布重试复用已有版本。真实更新或发布后更正传`--change-reason '具体原因及影响' --supersedes 'research/前版精确文件.md'`，保留前版，同日按数字最大版本递增，跨日保存新日期。参数/存储失败退出2。脚本不采集、联网、分析、验证财务真伪或代替用户验收。省略正文只能生成模板草稿，不能发布。详见[完整发布规则](references/collection-and-storage.md#editable-draft--explicit-publication)。
 
 ## 产物与状态
 
@@ -163,7 +164,9 @@ python (Join-Path $stockSkill 'scripts\create_report.py') --code 600519 --name �
 | 已下载公告 | `research/evidence/documents/` | PDF 和提取文本路径记在证据包 `documents` 字段；文本只是待核线索。 |
 | 市场情绪 | `research/evidence/sentiment/market/YYYY-MM-DD.json` | 内容未变时复用；变化时另存版本。 |
 | 个股情绪 | `research/evidence/sentiment/stock/YYYY-MM-DD-CODE.json` | 内容未变时复用；变化时另存版本。 |
-| 完整报告 | `research/YYYY-MM-DD-CODE-简称.md` | 同名报告顺次加 `-v2`、`-v3`；未知简称时省略简称。 |
+| 编辑草稿 | `research/.drafts/YYYY-MM-DD-CODE-简称.md` | 同次内部修复原地更新，不进入正式报告数。 |
+| 完整报告 | `research/YYYY-MM-DD-CODE-简称.md` | 显式发布后不可变；真实更新/发布后更正另存版本，原样重试复用。 |
+| 补充短记 | `research/supplements/YYYY-MM-DD-CODE-简称-主题.md` | 独立于完整报告序列；已交付补充更正保留其前版及原因。 |
 | 筹码快照 | `research/evidence/chips/YYYY-MM-DD-CODE.json` | 按北京时间采集日命名，同日加 `-v2`、`-v3`，实际数据日另存。 |
 | 筹码图 | `research/evidence/chips/charts/<SHA256>.svg` | 仅本地分布可生成，按 SVG 内容命名。 |
 | 定时任务日志 | `research/evidence/sentiment/schedule.log` | 追加记录运行时间和退出码。 |
@@ -225,18 +228,18 @@ python (Join-Path $stockSkill 'scripts\check_source_health.py') --output-dir .
 
 这份历史摘要不实时验活，失败率还包含过期／覆盖不足；判断故障先看单条原诊断，不能凭失败计数认定根因。实际上游、访问工具、字段／时点及主备条件见 [data-source-policy.md](references/data-source-policy.md) 的数据集表；更换仍访问同一东财端点的SDK不增加独立来源。腾讯日线结构拒绝、东财连接失败、雪球HTTP拒绝、券商EPS过期或待审须分别解释；适配修复／独立备源另列范围，不在本批猜测修复。
 
-工作区允许自动校验时，可单独检查报告，或保存后立即检查：
+工作区允许自动校验时，可检查已发布报告，或在草稿阶段按最终路径预检：
 
 ```powershell
 python (Join-Path $stockSkill 'scripts\validate_report.py') --report 'research\YYYY-MM-DD-CODE-NAME.md' --workspace .
 python (Join-Path $stockSkill 'scripts\create_report.py') --code CODE --name NAME --date YYYY-MM-DD --output-dir . --content-file '已完成草稿.md' --validate
 ```
 
-校验错误返回 1，警告不阻止读取；保存后失败会保留新建草稿和版本，不覆盖旧报告，不宣称正式完成。未加 --validate 的保存行为保持不变。当前工作区禁止自动验证，以上命令交给用户亲自运行；本轮未运行验证器、采集验收、构建或测试，也未改测试文件或提交 Git。
+校验错误返回1，警告保留为披露项；失败保留可编辑草稿，不生成正式版本。未加`--publish`一律只保存草稿，`--validate`本身也不发布。可用`validate_report.py --report 'research/拟发布文件名.md' --workspace . --content-file 'research/.drafts/实际草稿.md'`按拟发布路径解析链接。若实际工作区规则禁止运行校验，保留待用户验收草稿并提供发布命令；权限依据当前工作区规则，不沿用这份说明中过去某轮执行状态。
 
 报告位于 research/ 时，链接写 `evidence/<精确版本>.json`、`evidence/sentiment/stock/<精确版本>.json` 及前次报告文件名。必填代码、名称、研究日期、资料截止时间、行情时间／阶段、核心和情绪证据的路径／采集时间、最近完整交易日；数据缺失时写明原因。跟踪报告需引用前次报告及新旧核心证据版本，并写“仍有效／需重算／无法判断”。校验器检查结构与引用，不能替代人工阅读原始披露、复算估值或证明财务数字已核实。情绪 partial 是需披露的覆盖警告，不强制否定核心研究。
 
-头部元数据支持 `>`、`-`、`*` 前缀、加粗字段名、字段名中的空格及中英文冒号；只读取正文第一节之前的已知字段。真正缺失的字段、快照和错误路径仍会报错。
+头部元数据支持 `>`、`-`、`*` 前缀、加粗字段名、字段名空格和中英文冒号，以及分号分隔的已知字段；价格区间同时识别文字范围和`低价≤P＜高价`。真正缺字段、错误路径、无数字价带及未评级报告给出可执行价带仍报错。补充说明另存`supplements/`并关联完整报告，总览主链接保留完整报告；本helper的完整报告校验不用于将短记伪装为完整报告。
 
 ## 报告一致性与输入核验
 

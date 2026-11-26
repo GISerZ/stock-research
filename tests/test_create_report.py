@@ -12,7 +12,7 @@ from create_report import create_report  # noqa: E402
 
 
 class CreateReportTests(unittest.TestCase):
-    def test_same_day_research_preserves_prior_report(self):
+    def test_same_day_internal_edits_reuse_draft(self):
         with tempfile.TemporaryDirectory() as directory:
             first = create_report("600519", "贵州茅台", "2026-09-28", directory)
             first.write_text("第一份完整报告", encoding="utf-8")
@@ -20,7 +20,8 @@ class CreateReportTests(unittest.TestCase):
             second = create_report("600519", "贵州茅台", "2026-09-28", directory)
 
             self.assertEqual(first.name, "2026-09-28-600519-贵州茅台.md")
-            self.assertEqual(second.name, "2026-09-28-600519-贵州茅台-v2.md")
+            self.assertEqual(first, second)
+            self.assertEqual(first.parent.name, ".drafts")
             self.assertEqual(first.read_text(encoding="utf-8"), "第一份完整报告")
             self.assertTrue(second.is_file())
 
@@ -44,7 +45,7 @@ class CreateReportTests(unittest.TestCase):
                 check=False,
             )
 
-            report = Path(directory) / "research" / "2026-09-28-600519-贵州茅台.md"
+            report = Path(directory) / "research" / ".drafts" / "2026-09-28-600519-贵州茅台.md"
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertEqual(Path(result.stdout.strip()), report)
             self.assertEqual(report.read_text(encoding="utf-8"), draft.read_text(encoding="utf-8"))

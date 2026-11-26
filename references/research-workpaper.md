@@ -4,7 +4,7 @@
 
 ## 保存与兼容
 
-- 新研究保存为当前工作区的`research/evidence/manual/YYYY-MM-DD-CODE/workpaper.json`；同日更新另存`workpaper-v2.json`、`workpaper-v3.json`等，不覆盖已有版本。文件名版本表示同日修订，`workpaper_version`表示字段契约版本，两者独立。
+- 未冻结的内部底稿可在`research/.drafts/`原地修改；交给Agent审阅、用于交接或正式采用时，冻结保存为`research/evidence/manual/YYYY-MM-DD-CODE/workpaper.json`，其后修订另存`workpaper-v2.json`等，保留被审版本。文件名版本与字段契约`workpaper_version`独立。证据、被审方案和已冻结底稿继续不可变；另一未冻结草稿中的引用本身不使内部草稿成为已发布文件。
 - 报告、简报或其他底稿只引用实际保存的精确版本。`basis.supersedes`说明被替代文件、定位、范围和原因；替代最终条件不等于旧事实、模型或审查全部作废。
 - 底稿中的本地`path`相对**本底稿所在目录**解析，用`/`分隔；报告中的链接相对报告目录解析，不能原样抄路径。`locator`定位JSON Pointer、Markdown章节或PDF页码/表名；PDF页码注明文件页码或印刷页码。原始网页用直达`url`。
 - 不迁移、重写历史报告和计算稿。复用旧附件时保留其单位、原截止及原核验记录；新底稿记录本次采用判断。仅整理历史结构时，明确“非本次重新核验/当前评级”。
@@ -27,7 +27,7 @@
 | `sensitivity` | 决定性分歧的变化范围、结果及对判断的影响 |
 | `final_decision` | 本次已采纳决定；未知或未评级仍保留对象和原因，价带按规则置null |
 
-`research_as_of`用带时区的ISO 8601时间，无法精确到秒时保留真实精度，不杜撰时间。`holding_horizon`采用下节的新底稿写法；历史字符串或旧对象保留原样，不为新默认迁移。`reference_quote_ref`引用报价输入ID，不能只写一个无时间的价格。`model_status`取`not_started / in_progress / completed`，与能否评级分开。`report_ref`、`evidence_refs`引用精确文件及定位；尚无报告时`report_ref=null`并在`basis.note`说明。`supersedes`无前版时为null，否则记录`path / locator / scope / reason`，定位被替代的最终决定或旧报告章节。
+`research_as_of`用带时区的ISO 8601时间，无法精确到秒时保留真实精度，不杜撰时间。`holding_horizon`采用下节的新底稿写法；历史字符串或旧对象保留原样，不为新默认迁移。`reference_quote_ref`引用报价输入ID，不能只写一个无时间的价格。`model_status`取`not_started / in_progress / completed`，与能否评级分开。`evidence_refs`引用精确证据文件及定位。`report_ref`可以为null，在`basis.note`说明发布映射由报告头部和阶段记录保存；报告后来发布或仅更正格式/链接时继续复用该底稿，不为更新反向报告文件名而复制财务底稿。已有非null引用保留其历史身份；输入/假设/结果/决定实质改变时按下节另存。`supersedes`无前版时为null，否则记录`path / locator / scope / reason`，定位被替代的最终决定或旧报告章节。
 
 ### 研究期限与期末情景
 
@@ -46,7 +46,7 @@
 3. 在`derived`计算一次转换、桥接、每股价值及边界；`scenarios`引用结果，不另算一份。保留精度及显示舍入说明。
 4. 在`sensitivity`处理决定性且有据的分歧，说明风险已计入盈利、倍数或折价的哪个位置，以及现价判断是否改变。
 5. 待审方案引用精确底稿版本和提议采用的结果ID，仍标为提议。主研究者完成适用审查及裁决后，将已采纳条件写入`final_decision`；不因缺失角色或未采纳提议而虚填审查完成。
-6. 报告头部链接该精确底稿版本及最终决定ID；核心结论表达同一决定，估值、多空、风控和后续计划复用已算结果。交付前人工对齐；发现冲突先修订并另存版本，不能把两个不一致的方案同时作为有效结论。
+6. 报告头部链接该精确底稿版本及最终决定ID；核心结论表达同一决定，估值、多空、风控和后续计划复用已算结果。交付前人工对齐；未发布报告在同一草稿修复，涉及已冻结研究判断时另存受影响底稿；正式报告发布后发现错误则保留旧报告并发布带原因的新版本，不能把两个不一致方案同时作为有效结论。
 
 `final_decision`是已采纳条件的结构化来源，报告核心结论仍是面向读者的权威表达；两者表达同一决定。最终采用尚未确定时保留对象、未知项为null并说明待裁决，不把待审方案填成已采纳决定；旧结论只在其明确继承范围内有效。
 
